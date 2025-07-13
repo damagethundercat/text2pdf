@@ -1,10 +1,38 @@
 import os
+import platform
 from pdf2image import convert_from_path, pdfinfo_from_path
 from typing import List, Optional
 from PIL.Image import Image
 
-# poppler 경로는 환경변수 또는 기본값 사용
-POPLER_PATH = os.environ.get("POPLER_PATH", r"D:\\Projects\\AI\\bin\\poppler-24.08.0\\Library\\bin")
+# poppler 경로 자동 탐색 함수
+
+def get_poppler_path():
+    # 1. 환경변수 우선
+    poppler_path = os.environ.get("POPLER_PATH")
+    if poppler_path and os.path.exists(poppler_path):
+        return poppler_path
+    # 2. OS별 기본 경로 자동 탐색
+    system = platform.system()
+    if system == "Windows":
+        possible_paths = [
+            r"C:\\Program Files\\poppler-24.08.0\\Library\\bin",
+            r"C:\\Program Files\\poppler-23.11.0\\Library\\bin",
+            r"C:\\Program Files\\poppler-0.68.0\\bin",
+        ]
+    elif system == "Darwin":  # macOS
+        possible_paths = [
+            "/opt/homebrew/bin",  # Apple Silicon
+            "/usr/local/bin",    # Intel Mac
+        ]
+    else:  # Linux
+        possible_paths = ["/usr/bin", "/usr/local/bin"]
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    # 3. 못 찾으면 안내
+    raise RuntimeError("Poppler 경로를 찾을 수 없습니다. POPPLER_PATH 환경변수를 직접 지정해 주세요.")
+
+POPLER_PATH = get_poppler_path()
 
 
 def get_total_pages(pdf_path: str) -> int:
