@@ -9,6 +9,18 @@ dev-debug.log
 # Dependency directories
 node_modules/
 
+# 프로젝트 데이터/작업 폴더 무시
+# books 폴더 내부의 모든 하위 폴더 무시
+books/*/
+# books 폴더 자체와 그 안의 안내 파일은 추적
+!books/
+!books/*.md
+!books/*.txt
+
+sample/
+.cursor/
+.taskmaster/
+
 # Environment variables
 .env
 
