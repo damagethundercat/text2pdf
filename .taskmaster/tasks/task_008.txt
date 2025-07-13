@@ -1,0 +1,11 @@
+# Task ID: 8
+# Title: Build CLI Interface with Progress Tracking
+# Status: done
+# Dependencies: 7
+# Priority: medium
+# Description: Create command-line interface with real-time progress bars, cost estimation, and error reporting for sequential processing
+# Details:
+Implement main CLI using argparse with commands: run_pipeline, retry_failures. Add progress bar using tqdm library showing sequential window progress (0-100%). Include real-time cost tracking and budget warnings. Implement --max_cost flag for budget limits. Add verbose logging options and error summary reporting. CRITICAL: Progress tracking must reflect sequential window processing, not parallel batch progress, to give accurate time estimates and cost projections.
+
+# Test Strategy:
+Test CLI commands with various PDF sizes, verify progress bar accuracy for sequential processing, test cost limit enforcement, validate error reporting format

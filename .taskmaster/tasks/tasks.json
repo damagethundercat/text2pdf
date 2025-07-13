@@ -1,0 +1,357 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository and Dependencies",
+        "description": "Initialize project structure with required dependencies including pdf2image, google-generativeai, tesseract-ocr, and rapidfuzz",
+        "details": "Create project directory structure with folders: src/, logs/, page_txt/, merged/, tests/. Install dependencies: pip install pdf2image google-generativeai pytesseract rapidfuzz python-dotenv. Setup .env file for GOOGLE_API_KEY. Create requirements.txt and basic project configuration files.",
+        "testStrategy": "Verify all dependencies install correctly, test .env loading, confirm directory structure creation",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement PDF to PNG Conversion Module",
+        "description": "Create PDF preprocessing module that converts PDF pages to PNG images using pdf2image library for sequential page-by-page processing",
+        "status": "done",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "details": "Implement convert_pdf_to_images() function using pdf2image.convert_from_path(). Handle DPI settings (default 300, resize if too large). Save images as PNG format with sequential naming (0001.png, 0002.png, etc.). Include error handling for corrupted PDFs and memory management for large files. CRITICAL: This module prepares individual page images for sequential window-based processing - never batch process all pages at once to avoid context overflow and hallucination risks.",
+        "testStrategy": "Test with sample PDFs of various sizes, verify PNG output quality and file naming convention, test memory usage with large PDFs, validate sequential page extraction for window processing",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Develop Single Page Flash Extraction PoC",
+        "description": "Create proof of concept for extracting text from single page using Gemini 2.5 Flash API with strict sequential processing",
+        "status": "done",
+        "dependencies": [
+          1,
+          2
+        ],
+        "priority": "high",
+        "details": "Implement extract_text_from_image() using google.generativeai library. Configure model with temperature=0.0 and 'professional proof-reader' system prompt. Convert PNG to base64 for API submission. Handle API responses and extract text content. Include cost estimation and token counting. CRITICAL: This function processes only single pages or small window groups (max 3 pages) to minimize context consumption and prevent hallucination errors that occur with large batch inputs.",
+        "testStrategy": "Test with various page types (text-heavy, mixed content, poor quality scans), verify OCR accuracy and proofreading quality, validate cost calculations, confirm single-page processing limits",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement Sequential Window Loading System",
+        "description": "Create overlapping page window system that processes N-1, N, N+1 pages together sequentially for context preservation while avoiding batch processing",
+        "status": "done",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "medium",
+        "details": "Implement create_page_windows() that groups 3 consecutive pages and processes them sequentially, never in parallel batches. Convert each group to base64 and package in parts array for Flash API. Handle edge cases for first/last pages. Implement PageJob data model with fields: id, imgs[3], status, retries, cost_est, error. Include logic to merge overlapping text results. CRITICAL: Process windows one at a time in strict sequential order to minimize token usage and prevent context overflow that leads to hallucinations.",
+        "testStrategy": "Test with pages that have text spanning boundaries, verify context preservation, test edge cases for document start/end, validate sequential processing order and memory efficiency",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Develop Text Post-processing and Paragraph Segmentation",
+        "description": "Implement text cleaning, paragraph splitting, and delimiter insertion for training dataset preparation from sequentially processed pages",
+        "status": "done",
+        "dependencies": [
+          4
+        ],
+        "priority": "medium",
+        "details": "Create process_extracted_text() function that: 1) Splits paragraphs longer than 800 characters using regex sentence detection, 2) Inserts ***** delimiters between sections, 3) Cleans up OCR artifacts and formatting issues, 4) Maintains proper paragraph structure for downstream LLM training. Use regex patterns for Korean/English sentence boundary detection. CRITICAL: Handle text from sequential window processing, managing overlap removal and continuity across page boundaries.",
+        "testStrategy": "Test with various text lengths and structures, verify paragraph splitting accuracy, confirm delimiter placement, test with multilingual content, validate overlap handling from sequential windows",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Page-level Checkpoint Storage System",
+        "description": "Create checkpoint system that saves individual page results and enables resume functionality for sequential processing",
+        "status": "done",
+        "dependencies": [
+          6
+        ],
+        "priority": "medium",
+        "details": "Implement save_page_result() to store individual page text in page_txt/NNNN.txt format. Create checkpoint tracking with JSONL logging (LogLine model: timestamp, level, page_id, message). Implement resume_from_checkpoint() to skip already processed pages and continue sequential processing from the correct window position. Include success/failure status tracking and cost accumulation. CRITICAL: Checkpoint system must track sequential window progress to resume processing at the exact correct position without skipping or duplicating windows.",
+        "testStrategy": "Test checkpoint creation and resume functionality, verify JSONL log format, test recovery from various failure points, validate sequential window position tracking",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Build CLI Interface with Progress Tracking",
+        "description": "Create command-line interface with real-time progress bars, cost estimation, and error reporting for sequential processing",
+        "status": "done",
+        "dependencies": [
+          7
+        ],
+        "priority": "medium",
+        "details": "Implement main CLI using argparse with commands: run_pipeline, retry_failures. Add progress bar using tqdm library showing sequential window progress (0-100%). Include real-time cost tracking and budget warnings. Implement --max_cost flag for budget limits. Add verbose logging options and error summary reporting. CRITICAL: Progress tracking must reflect sequential window processing, not parallel batch progress, to give accurate time estimates and cost projections.",
+        "testStrategy": "Test CLI commands with various PDF sizes, verify progress bar accuracy for sequential processing, test cost limit enforcement, validate error reporting format",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Create Final Dataset Merger and Output Generation",
+        "description": "Implement system to merge all sequentially processed page results into final training dataset with proper formatting",
+        "status": "done",
+        "dependencies": [
+          7
+        ],
+        "priority": "medium",
+        "details": "Implement merge_pages_to_dataset() that combines all page_txt/*.txt files into merged/dataset_full.txt in correct sequential order. Ensure proper ***** delimiter placement between pages. Add metadata header with processing statistics. Include duplicate paragraph detection and removal from overlapping windows. Generate summary statistics (total pages, characters, estimated tokens). CRITICAL: Merger must handle overlapping content from sequential window processing and maintain proper page order.",
+        "testStrategy": "Test merging with various page counts, verify delimiter consistency, test duplicate detection from window overlaps, validate final output format and sequential order",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Large-scale PDF Production Testing and Quality Validation",
+        "description": "Conduct comprehensive end-to-end testing with real large-scale PDFs (800+ pages) to validate the entire automated pipeline including progress tracking, checkpoints, merging, and post-processing quality.",
+        "status": "pending",
+        "dependencies": [
+          9,
+          8,
+          7,
+          6
+        ],
+        "priority": "medium",
+        "details": "Execute comprehensive production testing using actual large-scale PDFs (800+ pages) to validate the complete automated pipeline. Test scenarios include: 1) Full pipeline execution from start to finish with progress monitoring, 2) Checkpoint recovery testing by intentionally interrupting processing at various stages, 3) Memory usage and performance monitoring during sequential window processing, 4) Quality validation of final merged dataset including proper delimiter placement and duplicate removal, 5) Cost tracking accuracy and budget limit enforcement, 6) Error handling and recovery mechanisms under real-world conditions. Document processing times, memory consumption, API costs, and output quality metrics. Establish baseline performance benchmarks for production deployment. CRITICAL: This testing determines project completion readiness - successful processing of 800+ page PDFs with high-quality output marks the project as production-ready.",
+        "testStrategy": "Test with multiple large PDFs (800-2000+ pages) of varying complexity (text-heavy, image-heavy, mixed content). Verify complete pipeline execution without failures. Test checkpoint recovery by stopping processing at 25%, 50%, 75% completion and resuming. Monitor memory usage throughout processing to ensure no memory leaks. Validate final dataset quality by sampling random pages and checking for proper formatting, delimiter placement, and absence of duplicates. Verify progress tracking accuracy by comparing estimated vs actual completion times. Test cost tracking precision and budget enforcement. Document all performance metrics and establish production readiness criteria.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Execute Full Pipeline Test with 800-page PDF",
+            "description": "Successfully completed end-to-end testing using Gemini 2.5 Pro model with approximately 800-page PDF",
+            "status": "done",
+            "dependencies": [],
+            "details": "Conducted comprehensive pipeline testing with ~800 page PDF using Gemini 2.5 Pro model. Validated complete workflow from scanning to final output processing.",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Validate Pipeline Quality and Performance",
+            "description": "Successfully validated scanning and refinement quality of the complete pipeline",
+            "status": "done",
+            "dependencies": [],
+            "details": "Confirmed successful scanning and refinement processes. Pipeline demonstrated reliable performance for large-scale PDF processing.",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Document API Cost Analysis",
+            "description": "Recorded API costs of approximately 20,000 KRW for 800-page PDF processing",
+            "status": "done",
+            "dependencies": [],
+            "details": "API costs reached approximately 20,000 KRW for processing ~800 pages, identified as exceeding budget expectations for production use.",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Make Strategic Decision Based on Cost Analysis",
+            "description": "Decided to pivot project direction due to high API costs relative to budget",
+            "status": "done",
+            "dependencies": [],
+            "details": "Based on cost analysis showing 20,000 KRW for 800 pages, made strategic decision to change project direction due to budget constraints for production deployment.",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Deployment Strategy Development and Documentation",
+        "description": "Establish comprehensive deployment strategy for CLI/script-based distribution via GitHub repository or package format, including complete documentation for installation, usage, examples, and precautions with emphasis on cost management, model performance characteristics, and API rate limit handling.",
+        "status": "pending",
+        "dependencies": [
+          10,
+          8
+        ],
+        "priority": "medium",
+        "details": "Develop multi-channel deployment strategy: 1) GitHub repository distribution with setup.py/pyproject.toml for pip installation, 2) Standalone script package with bundled dependencies, 3) Docker containerization option. Create comprehensive documentation including: installation guide (pip install, manual setup, dependency requirements), CLI usage examples with real-world scenarios, configuration file templates, troubleshooting guide, performance optimization tips, and security considerations. Implement version management with semantic versioning and automated release workflows. Include requirements.txt, setup instructions for different OS platforms (Windows/Linux/macOS), and migration guides for updates. Document API rate limits, cost management strategies, and best practices for large-scale processing. Create example scripts for common use cases and integration patterns. CRITICAL: Documentation must include detailed cost analysis (Gemini 2.5 Pro: ~$25 for 800 pages, Gemini 2.5 Flash: cost-effective alternative), model performance comparisons (Gemma 3:12B inadequate for OCR tasks), and rate limit workarounds (30-second intervals for Flash model). Include budget planning guidelines and cost optimization strategies for different document sizes.",
+        "testStrategy": "Test installation process on clean environments (fresh VMs/containers) for each deployment method. Verify all documented installation steps work correctly. Test CLI examples from documentation to ensure accuracy, including cost estimation examples. Validate package dependencies and version compatibility. Test deployment on different operating systems. Verify documentation completeness by having team members follow installation and usage guides. Test automated release workflow and version management. Validate example scripts execute successfully. Test cost calculation accuracy and rate limit handling examples with actual API calls.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create cost analysis and budget planning documentation",
+            "description": "Document detailed cost analysis based on actual testing results and provide budget planning guidelines",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Create comprehensive cost analysis section documenting: Gemini 2.5 Pro costs (~$25 for 800 pages), Gemini 2.5 Flash as cost-effective alternative, cost per page calculations for different document sizes. Include budget planning templates, cost estimation formulas, and recommendations for different use cases. Document when to use each model based on budget constraints and quality requirements.",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Document model performance characteristics and limitations",
+            "description": "Create detailed documentation of model performance based on testing results",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Document model comparison results: Gemini 2.5 Pro (high quality, high cost), Gemini 2.5 Flash (good quality, cost-effective), Gemma 3:12B (inadequate for OCR tasks). Include performance metrics, quality assessments, and use case recommendations. Provide clear guidance on model selection based on requirements and constraints.",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create API rate limit handling and workaround documentation",
+            "description": "Document rate limit management strategies and proven workaround methods",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Document rate limit handling strategies including the proven 30-second interval method for Gemini 2.5 Flash. Include configuration examples, timing recommendations, and error handling for rate limit scenarios. Provide troubleshooting guide for common rate limit issues and recovery strategies.",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Develop deployment packages with cost-aware configuration",
+            "description": "Create deployment packages that include cost management and model selection features",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Implement setup.py/pyproject.toml with cost-aware configuration options. Include default settings that balance cost and performance. Create configuration templates that allow users to select models based on budget constraints. Include cost estimation utilities in the package.",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Create practical usage examples with cost considerations",
+            "description": "Develop real-world usage examples that demonstrate cost-effective processing strategies",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Create example scripts showing: small document processing (< 50 pages) with Flash model, large document processing with cost optimization, batch processing strategies for multiple documents. Include cost estimation examples and budget-aware processing workflows. Provide templates for different use cases and budget scenarios.",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Test deployment with cost and performance validation",
+            "description": "Validate deployment packages with actual cost and performance testing",
+            "status": "pending",
+            "dependencies": [],
+            "details": "Test installation and usage examples with actual API calls to validate cost calculations and performance documentation. Verify rate limit handling works as documented. Test cost estimation accuracy across different document sizes and model configurations. Validate that documented performance characteristics match actual results.",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Extend Text Extraction Pipeline with Multi-Model Support (Gemini 2.5 Flash and Gemma 3:12B via Ollama)",
+        "description": "The multi-model architecture has been successfully implemented with ModelHandler abstract class, individual model handlers (Gemini, Ollama-Gemma, Gemini 2.5 Pro), factory pattern, CLI --model option, and pipeline branching. Focus now shifts to documentation, testing, performance optimization, and preparing for future model additions.",
+        "status": "pending",
+        "dependencies": [
+          8,
+          7
+        ],
+        "priority": "medium",
+        "details": "Multi-model support infrastructure is complete with extensible architecture including ModelHandler abstract class, concrete implementations for each model (GeminiModelHandler, OllamaGemmaModelHandler, Gemini2.5ProHandler), factory pattern for model selection, CLI --model parameter, and proper pipeline integration. The system successfully handles model switching and provides a solid foundation for future model additions. Current focus areas: 1) Comprehensive documentation of the multi-model architecture, 2) Enhanced testing coverage for all model handlers, 3) Performance optimization and rate limiting strategies, 4) Model evaluation framework for systematic comparison, 5) Preparation for future high-performance model integration, 6) Cost tracking and quota management improvements.",
+        "testStrategy": "Test all implemented model handlers with various document types and sizes. Verify CLI model selection functionality across all supported models. Test factory pattern with valid and invalid model selections. Validate pipeline integration and model switching. Test documentation completeness and accuracy. Verify extensibility framework for future model additions.",
+        "subtasks": [
+          {
+            "id": 3,
+            "title": "Implement OllamaClient for Gemma 3:12B Integration",
+            "description": "Create a client class to interact with the Ollama API for using the Gemma 3:12B model for text extraction.",
+            "status": "in-progress",
+            "dependencies": [
+              2
+            ],
+            "details": "Develop an OllamaClient class that handles connection to the Ollama API, sends requests to the Gemma 3:12B model, and processes responses. Implement proper error handling for connection failures, timeout issues, and model loading problems. Include retry logic and health checks during initialization.",
+            "testStrategy": "Test the OllamaClient with both valid and invalid requests. Mock the Ollama API responses to test error handling. Verify connection management and retry mechanisms."
+          },
+          {
+            "id": 4,
+            "title": "Create Comprehensive Multi-Model Architecture Documentation",
+            "description": "Document the complete multi-model architecture including ModelHandler interface, factory pattern, CLI integration, and guidelines for adding new models.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create detailed documentation covering: ModelHandler abstract class design and interface contract, factory pattern implementation and usage, CLI --model parameter functionality, existing model handlers (Gemini, Ollama-Gemma, Gemini 2.5 Pro), pipeline integration and model switching mechanism, step-by-step guide for adding new models, best practices for model handler implementation, error handling patterns, and testing requirements for new models.",
+            "testStrategy": "Verify documentation accuracy against actual implementation. Test documentation by following new model addition guide. Validate code examples and usage instructions."
+          },
+          {
+            "id": 5,
+            "title": "Implement Comprehensive Test Suite for Multi-Model Architecture",
+            "description": "Create thorough test coverage for all components of the multi-model system including unit tests, integration tests, and end-to-end testing.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Develop comprehensive test suite including: unit tests for ModelHandler abstract class, factory pattern tests with all model types, CLI parameter validation tests, integration tests for each model handler, end-to-end pipeline tests with model switching, mock API response testing, error handling and edge case testing, performance benchmarking tests, and regression tests for future model additions.",
+            "testStrategy": "Achieve >90% code coverage for multi-model components. Test all model handlers with various document types. Verify CLI functionality across all supported models. Test error scenarios and recovery mechanisms."
+          },
+          {
+            "id": 6,
+            "title": "Implement Rate Limiting and Performance Optimization",
+            "description": "Develop rate limiting strategies and performance optimization for all model handlers, with focus on API quota management and processing efficiency.",
+            "status": "pending",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement configurable rate limiting system that works across all model handlers. Create quota management for API-based models (Gemini variants). Implement intelligent backoff strategies and retry logic with exponential backoff. Add performance monitoring and metrics collection. Include batch processing optimization and checkpoint integration for large document processing.",
+            "testStrategy": "Test rate limiting with various intervals and API quota scenarios. Verify performance optimization with large documents. Test quota management and automatic backoff mechanisms. Validate processing efficiency improvements."
+          },
+          {
+            "id": 7,
+            "title": "Create Model Evaluation and Comparison Framework",
+            "description": "Develop framework for systematic evaluation and comparison of different models including accuracy, performance, and cost metrics.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              5
+            ],
+            "details": "Implement evaluation framework that measures: text recognition accuracy across different document types, processing speed and throughput, cost per page/document for API-based models, error rates and reliability metrics, resource usage for local models, and comparative analysis tools. Include benchmarking datasets and standardized evaluation procedures for consistent model comparison.",
+            "testStrategy": "Test evaluation framework with all implemented model handlers. Verify metrics accuracy and consistency. Test benchmarking tools with various document types. Validate comparative analysis functionality."
+          },
+          {
+            "id": 8,
+            "title": "Prepare Framework for Future High-Performance Model Integration",
+            "description": "Design and implement extensibility features to facilitate easy integration of future high-performance models while maintaining backward compatibility.",
+            "status": "pending",
+            "dependencies": [
+              4,
+              5
+            ],
+            "details": "Create extensibility framework including: standardized model integration checklist, template for new model handlers, automated testing pipeline for new models, configuration management for model-specific parameters, plugin architecture for advanced model features, version compatibility management, and migration tools for model updates. Ensure framework supports both API-based and local model integration patterns.",
+            "testStrategy": "Test extensibility framework by implementing a mock new model handler. Verify backward compatibility with existing models. Test automated integration pipeline. Validate configuration management and plugin architecture."
+          },
+          {
+            "id": 1,
+            "title": "Implement CLI Model Selection with argparse",
+            "description": "Extend the command-line interface to add a --model parameter that allows users to select between different text extraction models.",
+            "dependencies": [],
+            "details": "Modify the existing argparse implementation to add a new --model parameter with choices ['gemini', 'ollama-gemma'] and default to 'gemini'. Ensure the parameter is properly documented in help text. Update the main function to pass this model selection to the text extraction pipeline.",
+            "status": "done",
+            "testStrategy": "Verify the CLI accepts the --model parameter with valid choices and rejects invalid choices. Test with both specified model and default behavior."
+          },
+          {
+            "id": 2,
+            "title": "Design ModelHandler Interface and Factory Pattern",
+            "description": "Create an extensible architecture for model handling using a factory pattern or strategy pattern to support multiple text extraction models.",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement a ModelHandler interface/abstract class that defines common methods for text extraction. Create concrete implementations for GeminiModelHandler and OllamaGemmaModelHandler. Implement a ModelHandlerFactory that returns the appropriate handler based on the model parameter. Design with extensibility in mind to easily add future models.",
+            "status": "done",
+            "testStrategy": "Create unit tests for the factory to ensure it returns the correct handler type for each model option. Test with mock handlers to verify the interface contract."
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Final Code Cleanup and Deployment Strategy Implementation",
+        "description": "Perform comprehensive code refactoring, documentation, exception handling improvements, and test coverage enhancement, then implement the selected deployment strategy with cross-platform compatibility considerations.",
+        "details": "Execute final production-ready code preparation in phases: 1) Code Quality Enhancement: Refactor codebase for maintainability, add comprehensive docstrings to all functions/classes, implement robust exception handling with user-friendly error messages, enhance logging throughout the pipeline, and ensure PEP 8 compliance. 2) Documentation Completion: Create comprehensive README with installation instructions, usage examples, troubleshooting guide, and API documentation. Generate code documentation using Sphinx or similar tools. 3) Test Coverage Expansion: Add unit tests for all core functions, integration tests for complete pipeline workflows, edge case testing for error conditions, and cross-platform compatibility tests. 4) Deployment Implementation: Based on Task 11's deployment strategy analysis, implement the selected deployment method (GitHub repository with pip installation, standalone package, or Docker container). Create setup.py/pyproject.toml with proper dependency management, version control, and metadata. 5) Cross-Platform Validation: Test deployment on Windows, macOS, and Linux environments. Ensure path handling, dependency installation, and CLI functionality work across all platforms. 6) Release Preparation: Create release notes, tag versions in Git, prepare distribution packages, and establish update/maintenance procedures. CRITICAL: All deployment artifacts must be thoroughly tested in clean environments to ensure seamless user experience.",
+        "testStrategy": "Test code quality improvements by running linting tools (flake8, pylint) and ensuring all tests pass. Verify documentation completeness by having team members follow installation and usage instructions from scratch. Test deployment packages on clean virtual machines for each target OS (Windows 10/11, macOS, Ubuntu/CentOS). Validate pip installation process, CLI functionality, and all documented examples. Test error handling by intentionally triggering various failure scenarios and verifying user-friendly error messages. Perform end-to-end testing of the complete pipeline using the deployed version. Verify cross-platform path handling, dependency resolution, and performance consistency. Test update/upgrade procedures if applicable.",
+        "status": "pending",
+        "dependencies": [
+          11,
+          12,
+          10
+        ],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-09T10:01:19.239Z",
+      "updated": "2025-07-13T16:59:32.877Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

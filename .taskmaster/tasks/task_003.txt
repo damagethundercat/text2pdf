@@ -1,0 +1,11 @@
+# Task ID: 3
+# Title: Develop Single Page Flash Extraction PoC
+# Status: done
+# Dependencies: 1, 2
+# Priority: high
+# Description: Create proof of concept for extracting text from single page using Gemini 2.5 Flash API with strict sequential processing
+# Details:
+Implement extract_text_from_image() using google.generativeai library. Configure model with temperature=0.0 and 'professional proof-reader' system prompt. Convert PNG to base64 for API submission. Handle API responses and extract text content. Include cost estimation and token counting. CRITICAL: This function processes only single pages or small window groups (max 3 pages) to minimize context consumption and prevent hallucination errors that occur with large batch inputs.
+
+# Test Strategy:
+Test with various page types (text-heavy, mixed content, poor quality scans), verify OCR accuracy and proofreading quality, validate cost calculations, confirm single-page processing limits
