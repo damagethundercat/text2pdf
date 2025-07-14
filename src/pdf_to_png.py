@@ -3,6 +3,8 @@ import platform
 from pdf2image import convert_from_path, pdfinfo_from_path
 from typing import List, Optional
 from PIL.Image import Image
+from dotenv import load_dotenv
+load_dotenv()
 
 # poppler 경로 자동 탐색 함수
 
